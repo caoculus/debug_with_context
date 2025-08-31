@@ -4,14 +4,14 @@ version = 4
 
 [[package]]
 name = "debug_with_context"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "debug_with_context_macros",
 ]
 
 [[package]]
 name = "debug_with_context_macros"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "proc-macro2",
  "quote",

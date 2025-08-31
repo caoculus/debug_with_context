@@ -73,6 +73,14 @@ struct Test2ContextNoGeneric {
     b : i64,
 }
 
+#[derive(DebugWithContext)]
+#[debug_context(Context)]
+struct TestAsRefs {
+    a : Box<[i64]>,
+    b : Vec<i64>,
+    c : &'static [i64],
+}
+
 fn main(){
 
     let context1 = Context1;
@@ -122,9 +130,16 @@ fn main(){
     println!("{:?}", DebugWrapContext::new(&testeboth, &context));
     let testeboth = TestEAll::VariantC;
     println!("{:?}", DebugWrapContext::new(&testeboth, &context));
+    
 
     /*let test2contexts = DoubleContext {
         a: 3,
         b: 4,
     };*/
+
+    let testasrefs = TestAsRefs {
+        a: Box::new([1, 2]),
+        b : vec![3, 4, 5],
+        c: &[7, 8, 9],
+    };
 }

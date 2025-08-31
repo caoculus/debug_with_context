@@ -2,7 +2,7 @@
 
 // TODO : add a no-std feature to deactivate the parts that need std 
 
-use std::{collections::HashMap, convert::Infallible, env::Args, ffi::{CStr, CString, OsStr, OsString}, fmt::{self, Debug}, path::{Path, PathBuf}, str::Chars};
+use std::{collections::HashMap, convert::Infallible, env::Args, ffi::{CStr, CString, OsStr, OsString}, fmt::{self, Debug}, ops::Deref, path::{Path, PathBuf}, str::Chars};
 
 pub use debug_with_context_macros::DebugWithContext;
 
@@ -48,11 +48,11 @@ macro_rules! debug_with_context_debug {
 debug_with_context_debug!(bool, u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, f32, f64, usize, isize, char, &str, String, ());
 debug_with_context_debug!(Infallible, Args, CStr, CString, OsStr, OsString, Path, PathBuf);
 
-impl <'a, C> DebugWithContext<C> for Chars<'a> {
+/*impl <'a, C> DebugWithContext<C> for Chars<'a> {
     fn fmt_with_context(&self, f: &mut fmt::Formatter, _context: &C) -> fmt::Result {
         write!(f, "{:?}", self)
     }
-}
+}*/
 
 // TODO : use a macro to create tuples for example to a bigger size
 impl <C, T1, T2> DebugWithContext<C> for (T1, T2)
@@ -65,14 +65,41 @@ where
     }
 }
 
+#[inline]
+fn fmt_with_context_collection<C, Col, T>(col : &Col, f : &mut fmt::Formatter, context : &C) -> fmt::Result
+where 
+    Col: Deref<Target = [T]>,
+    T : DebugWithContext<C>,
+{
+    f.debug_list()
+            .entries(col.iter().map(|item| DebugWrapContext { value: item, context }))
+            .finish()
+}
+
 impl<C, T> DebugWithContext<C> for Vec<T>
 where
     T: DebugWithContext<C>,
 {
     fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        f.debug_list()
-            .entries(self.iter().map(|item| DebugWrapContext { value: item, context }))
-            .finish()
+        fmt_with_context_collection(self, f, context)
+    }
+}
+
+impl<C, T> DebugWithContext<C> for &[T]
+where
+    T: DebugWithContext<C>,
+{
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        fmt_with_context_collection(self, f, context)
+    }
+}
+
+impl<C, T> DebugWithContext<C> for Box<[T]>
+where
+    T: DebugWithContext<C>,
+{
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        fmt_with_context_collection(self, f, context)
     }
 }
 

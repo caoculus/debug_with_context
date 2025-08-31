@@ -3,7 +3,7 @@ members = [".", "debug_with_context_macros"]
 
 [package]
 name = "debug_with_context"
-version = "0.1.14"
+version = "0.1.15"
 edition = "2024"
 description = "A Rust crate for context-aware `Debug` formatting via a custom derive macro"
 license = "GPL-3.0-only"
@@ -11,5 +11,5 @@ repository = "https://github.com/Vinz2008/debug_with_context"
 readme = "README.md"
 
 [dependencies]
-debug_with_context_macros = { version = "0.1.14", path = "debug_with_context_macros" }
+debug_with_context_macros = { version = "0.1.15", path = "debug_with_context_macros" }
 
