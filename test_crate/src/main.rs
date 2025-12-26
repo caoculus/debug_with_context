@@ -4,6 +4,7 @@ use debug_with_context::{DebugWithContext, DebugWrapContext};
 use std::fmt::Debug;
 
 struct Context;
+struct GenericContext<T>(T);
 
 #[derive(DebugWithContext)]
 #[debug_context(Context)]
@@ -80,6 +81,10 @@ struct TestAsRefs {
     b : Vec<i64>,
     c : &'static [i64],
 }
+
+#[derive(DebugWithContext)]
+#[debug_context(GenericContext<i32>)]
+struct TestGenericContext;
 
 fn main(){
 
