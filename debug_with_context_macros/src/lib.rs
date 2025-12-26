@@ -2,13 +2,9 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::{ToTokens, quote};
 use syn::{
-    Data, DeriveInput, Field, Fields, GenericParam, Generics, TypeParam, WhereClause,
-    WherePredicate, parse_macro_input, parse_quote,
+    Data, DeriveInput, Field, Fields, GenericParam, Generics, Type, TypeParam,
+    WhereClause, WherePredicate, parse_macro_input, parse_quote,
 };
-
-/*fn compile_error<T: ToTokens>(tokens: T, message: &'static str) -> proc_macro2::TokenStream {
-    syn::Error::new_spanned(tokens, message).to_compile_error()
-}*/
 
 fn gen_field_struct_named(field: (usize, &Field)) -> proc_macro2::TokenStream {
     gen_field(field.1, field.0, true, true)
@@ -99,26 +95,16 @@ pub fn derive(input: TokenStream) -> TokenStream {
     } = parse_macro_input!(input);
     let mut context_structs = Vec::new();
     for attr in attrs {
-        if attr.path().is_ident("debug_context") {
-            attr.parse_nested_meta(|meta| {
-                context_structs.push(
-                    meta.path
-                        .get_ident()
-                        .expect("Expected an identifier for the debug context struct")
-                        .clone(),
-                );
-                Ok(())
-            })
-            .unwrap();
+        if !attr.path().is_ident("debug_context") {
+            continue;
+        }
+        match attr.parse_args() {
+            Ok(s) => {
+                context_structs.push(s);
+            }
+            Err(e) => return e.into_compile_error().into(),
         }
     }
-
-    /*let context_struct = match context_struct {
-        Some(cs) => cs,
-        None => {
-            return compile_error(ident, "Missing #[debug_context(...)] attribute").into();
-        }
-    };*/
 
     let generic_param_types = generics.type_params().cloned().collect::<Vec<_>>();
 
@@ -146,7 +132,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 }
 
 fn gen_struct_derive(
-    context_struct: Option<Ident>,
+    context_struct: Option<Type>,
     data: &Data,
     ident: &Ident,
     generic_param_types: &[TypeParam],
