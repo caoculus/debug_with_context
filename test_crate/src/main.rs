@@ -84,7 +84,25 @@ struct TestAsRefs {
 
 #[derive(DebugWithContext)]
 #[debug_context(GenericContext<i32>)]
-struct TestGenericContext;
+struct TestGenericContextBasic;
+
+#[derive(DebugWithContext)]
+#[debug_context(<T> GenericContext<T>)]
+struct TestGenericContextTypeParams;
+
+#[derive(DebugWithContext)]
+#[debug_context(<T> GenericContext<T> where T: Copy)]
+struct TestGenericContextWithWhere;
+
+#[derive(DebugWithContext)]
+#[debug_context(<U> GenericContext<U> where U: Clone)]
+struct TestContextAndTargetBothWithGenerics<T, A>
+where A: Debug
+{
+    a : T,
+    b : Vec<A>,
+}
+
 
 fn main(){
 

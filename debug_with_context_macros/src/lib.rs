@@ -2,8 +2,9 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::{ToTokens, quote};
 use syn::{
-    Data, DeriveInput, Field, Fields, GenericParam, Generics, Type, TypeParam,
-    WhereClause, WherePredicate, parse_macro_input, parse_quote,
+    Data, DeriveInput, Field, Fields, GenericParam, Generics, Token, Type, WhereClause,
+    WherePredicate, parse::Parse, parse_macro_input, parse_quote, punctuated::Punctuated,
+    token::Comma,
 };
 
 fn gen_field_struct_named(field: (usize, &Field)) -> proc_macro2::TokenStream {
@@ -106,21 +107,13 @@ pub fn derive(input: TokenStream) -> TokenStream {
         }
     }
 
-    let generic_param_types = generics.type_params().cloned().collect::<Vec<_>>();
-
     let output = if context_structs.is_empty() {
-        gen_struct_derive(None, &data, &ident, &generic_param_types, &generics)
+        gen_struct_derive(None, &data, &ident, &generics)
     } else {
         let mut outputs = Vec::new();
 
         for c in context_structs {
-            outputs.push(gen_struct_derive(
-                Some(c),
-                &data,
-                &ident,
-                &generic_param_types,
-                &generics,
-            ));
+            outputs.push(gen_struct_derive(Some(c), &data, &ident, &generics));
         }
 
         quote! {
@@ -131,51 +124,72 @@ pub fn derive(input: TokenStream) -> TokenStream {
     output.into()
 }
 
+struct ContextAttr {
+    impl_generics: Option<Punctuated<GenericParam, Comma>>,
+    ty: Type,
+    where_clause: Option<WhereClause>,
+}
+
+impl Parse for ContextAttr {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut impl_generics = None;
+        if input.parse::<Token![<]>().is_ok() {
+            let impl_generics = impl_generics.insert(Punctuated::new());
+            while !input.peek(Token![>]) {
+                impl_generics.push(input.parse()?);
+                if input.peek(Token![>]) {
+                    break;
+                }
+                input.parse::<Token![,]>()?;
+            }
+            input.parse::<Token![>]>()?;
+        }
+        let ty = input.parse()?;
+        let where_clause = input.parse().ok();
+
+        Ok(Self {
+            impl_generics,
+            ty,
+            where_clause,
+        })
+    }
+}
+
 fn gen_struct_derive(
-    context_struct: Option<Type>,
+    context_attr: Option<ContextAttr>,
     data: &Data,
     ident: &Ident,
-    generic_param_types: &[TypeParam],
     generics: &Generics,
 ) -> proc_macro2::TokenStream {
-    let mut generic_quote = None;
+    let mut impl_generics = generics.params.clone();
+    let mut where_predicates = generics
+        .where_clause
+        .clone()
+        .map_or_else(Default::default, |w| w.predicates);
+    let context_ty;
 
-    let mut generic_quote_without_generic_debug_context = None;
-
-    // TODO : make this simpler
-    if !generic_param_types.is_empty() {
-        let generic_param_context = if context_struct.is_none() {
-            Some(quote! { DEBUG_WITH_CONTEXT_CONTEXT_STRUCT, })
-        } else {
-            None
-        };
-        generic_quote = Some(quote! {
-            <#generic_param_context #(#generic_param_types,)*>
-        });
-        generic_quote_without_generic_debug_context = Some(quote! {
-            <#(#generic_param_types,)*>
-        })
-    } else if context_struct.is_none() {
-        generic_quote = Some(quote! {
-            <DEBUG_WITH_CONTEXT_CONTEXT_STRUCT>
-        });
+    if let Some(context_attr) = context_attr {
+        impl_generics.extend(context_attr.impl_generics.into_iter().flatten());
+        where_predicates.extend(
+            context_attr
+                .where_clause
+                .map(|w| w.predicates)
+                .into_iter()
+                .flatten(),
+        );
+        context_ty = context_attr.ty;
+    } else {
+        impl_generics.push(parse_quote! { DEBUG_WITH_CONTEXT_CONTEXT_STRUCT });
+        context_ty = parse_quote! { DEBUG_WITH_CONTEXT_CONTEXT_STRUCT };
     }
-
-    let mut where_clause = match &generics.where_clause {
-        Some(where_clause) => where_clause.clone(),
-        None => WhereClause {
-            where_token: Default::default(),
-            predicates: syn::punctuated::Punctuated::new(),
-        },
-    };
 
     for type_param in &generics.params {
         if let GenericParam::Type(type_param) = type_param {
             let ident = &type_param.ident;
             let type_param_bound: WherePredicate = parse_quote! {
-                #ident: DebugWithContext<#context_struct>
+                #ident: DebugWithContext<#context_ty>
             };
-            where_clause.predicates.push(type_param_bound);
+            where_predicates.push(type_param_bound);
         }
     }
 
@@ -267,28 +281,50 @@ fn gen_struct_derive(
         Data::Union(_) => panic!("Union are not supported for now"),
     };
 
-    if let Some(context_struct) = context_struct {
-        quote! {
-            #[automatically_derived]
-            impl #generic_quote DebugWithContext<#context_struct> for #ident #generic_quote
-            #where_clause
-            {
-                fn fmt_with_context(&self, f: &mut ::std::fmt::Formatter, context: &#context_struct) -> ::std::fmt::Result {
-                    #fmt_code
-                }
-            }
-        }
+    let impl_generic_quote = if impl_generics.is_empty() {
+        None
     } else {
-        // not specialized
-        quote! {
-            #[automatically_derived]
-            impl #generic_quote DebugWithContext<DEBUG_WITH_CONTEXT_CONTEXT_STRUCT> for #ident #generic_quote_without_generic_debug_context
-            #where_clause
-            {
-                fn fmt_with_context(&self, f: &mut ::std::fmt::Formatter, context: &DEBUG_WITH_CONTEXT_CONTEXT_STRUCT) -> ::std::fmt::Result {
-                    #fmt_code
-                }
+        Some(quote! { <#impl_generics> })
+    };
+    let (_, ty_generics, _) = generics.split_for_impl();
+    let where_clause = WhereClause {
+        where_token: Default::default(),
+        predicates: where_predicates,
+    };
+
+    quote! {
+        #[automatically_derived]
+        impl #impl_generic_quote DebugWithContext<#context_ty> for #ident #ty_generics
+        #where_clause
+        {
+            fn fmt_with_context(&self, f: &mut ::std::fmt::Formatter, context: &#context_ty) -> ::std::fmt::Result {
+                #fmt_code
             }
         }
     }
+
+    // if let Some(context_struct) = context_struct {
+    //     quote! {
+    //         #[automatically_derived]
+    //         impl #generic_quote DebugWithContext<#context_struct> for #ident #generic_quote
+    //         #where_clause
+    //         {
+    //             fn fmt_with_context(&self, f: &mut ::std::fmt::Formatter, context: &#context_struct) -> ::std::fmt::Result {
+    //                 #fmt_code
+    //             }
+    //         }
+    //     }
+    // } else {
+    //     // not specialized
+    //     quote! {
+    //         #[automatically_derived]
+    //         impl #generic_quote DebugWithContext<DEBUG_WITH_CONTEXT_CONTEXT_STRUCT> for #ident #generic_quote_without_generic_debug_context
+    //         #where_clause
+    //         {
+    //             fn fmt_with_context(&self, f: &mut ::std::fmt::Formatter, context: &DEBUG_WITH_CONTEXT_CONTEXT_STRUCT) -> ::std::fmt::Result {
+    //                 #fmt_code
+    //             }
+    //         }
+    //     }
+    // }
 }
