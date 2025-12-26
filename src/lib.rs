@@ -3,13 +3,13 @@
 // TODO : add a no-std feature to deactivate the parts that need std
 
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     convert::Infallible,
     env::Args,
     ffi::{CStr, CString, OsStr, OsString},
     fmt::{self, Debug},
     ops::Deref,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, rc::Rc, sync::Arc,
 };
 
 pub use debug_with_context_macros::DebugWithContext;
@@ -143,6 +143,24 @@ where
     }
 }
 
+impl<C, T> DebugWithContext<C> for Rc<[T]>
+where
+    T: DebugWithContext<C>,
+{
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        fmt_with_context_collection(self, f, context)
+    }
+}
+
+impl<C, T> DebugWithContext<C> for Arc<[T]>
+where
+    T: DebugWithContext<C>,
+{
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        fmt_with_context_collection(self, f, context)
+    }
+}
+
 impl<C, T> DebugWithContext<C> for Option<T>
 where
     T: DebugWithContext<C>,
@@ -156,6 +174,23 @@ where
 }
 
 impl<C, K, V, S> DebugWithContext<C> for HashMap<K, V, S>
+where
+    K: DebugWithContext<C>,
+    V: DebugWithContext<C>,
+{
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        f.debug_map()
+            .entries(self.iter().map(|(k, v)| {
+                (
+                    DebugWrapContext::new(k, context),
+                    DebugWrapContext::new(v, context),
+                )
+            }))
+            .finish()
+    }
+}
+
+impl<C, K, V> DebugWithContext<C> for BTreeMap<K, V>
 where
     K: DebugWithContext<C>,
     V: DebugWithContext<C>,
