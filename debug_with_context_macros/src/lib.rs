@@ -294,7 +294,7 @@ fn gen_struct_derive(
 
     quote! {
         #[automatically_derived]
-        impl #impl_generic_quote DebugWithContext<#context_ty> for #ident #ty_generics
+        impl #impl_generic_quote ::debug_with_context::DebugWithContext<#context_ty> for #ident #ty_generics
         #where_clause
         {
             fn fmt_with_context(&self, f: &mut ::std::fmt::Formatter, context: &#context_ty) -> ::std::fmt::Result {
@@ -302,29 +302,4 @@ fn gen_struct_derive(
             }
         }
     }
-
-    // if let Some(context_struct) = context_struct {
-    //     quote! {
-    //         #[automatically_derived]
-    //         impl #generic_quote DebugWithContext<#context_struct> for #ident #generic_quote
-    //         #where_clause
-    //         {
-    //             fn fmt_with_context(&self, f: &mut ::std::fmt::Formatter, context: &#context_struct) -> ::std::fmt::Result {
-    //                 #fmt_code
-    //             }
-    //         }
-    //     }
-    // } else {
-    //     // not specialized
-    //     quote! {
-    //         #[automatically_derived]
-    //         impl #generic_quote DebugWithContext<DEBUG_WITH_CONTEXT_CONTEXT_STRUCT> for #ident #generic_quote_without_generic_debug_context
-    //         #where_clause
-    //         {
-    //             fn fmt_with_context(&self, f: &mut ::std::fmt::Formatter, context: &DEBUG_WITH_CONTEXT_CONTEXT_STRUCT) -> ::std::fmt::Result {
-    //                 #fmt_code
-    //             }
-    //         }
-    //     }
-    // }
 }
