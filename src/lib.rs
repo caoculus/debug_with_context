@@ -1,15 +1,19 @@
 #![feature(debug_closure_helpers)]
+#![feature(bstr)]
 
 // TODO : add a no-std feature to deactivate the parts that need std
 
 use std::{
+    bstr::{ByteStr, ByteString},
     collections::{BTreeMap, HashMap},
     convert::Infallible,
     env::Args,
     ffi::{CStr, CString, OsStr, OsString},
     fmt::{self, Debug},
     ops::Deref,
-    path::{Path, PathBuf}, rc::Rc, sync::Arc,
+    path::{Path, PathBuf},
+    rc::Rc,
+    sync::Arc,
 };
 
 pub use debug_with_context_macros::DebugWithContext;
@@ -39,17 +43,15 @@ where
 }
 
 macro_rules! debug_with_context_debug {
-    ($t:ty) => {
-        impl <C> DebugWithContext<C> for $t {
-            fn fmt_with_context(&self, f: &mut fmt::Formatter, _context: &C) -> fmt::Result {
-                write!(f, "{:?}", self)
+    ($($t:ty),* $(,)?) => {
+        $(
+            impl <C> DebugWithContext<C> for $t {
+                fn fmt_with_context(&self, f: &mut fmt::Formatter, _context: &C) -> fmt::Result {
+                    write!(f, "{:?}", self)
+                }
             }
-        }
+        )*
     };
-    ($t1:ty, $($ts:ty),+) => {
-        debug_with_context_debug!($t1);
-        debug_with_context_debug!($($ts),+);
-    }
 }
 
 // TODO : add types here ?
@@ -72,17 +74,18 @@ debug_with_context_debug!(
     char,
     &str,
     String,
-    ()
+    (),
+    Infallible,
+    Args,
+    CStr,
+    CString,
+    OsStr,
+    OsString,
+    Path,
+    PathBuf,
+    ByteStr,
+    ByteString,
 );
-debug_with_context_debug!(
-    Infallible, Args, CStr, CString, OsStr, OsString, Path, PathBuf
-);
-
-/*impl <'a, C> DebugWithContext<C> for Chars<'a> {
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, _context: &C) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}*/
 
 // TODO : use a macro to create tuples for example to a bigger size
 impl<C, T1, T2> DebugWithContext<C> for (T1, T2)
@@ -220,6 +223,24 @@ impl<C, T> DebugWithContext<C> for &'_ mut T
 where
     T: DebugWithContext<C>,
 {
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        (**self).fmt_with_context(f, context)
+    }
+}
+
+impl<C> DebugWithContext<C> for Box<ByteStr> {
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        (**self).fmt_with_context(f, context)
+    }
+}
+
+impl<C> DebugWithContext<C> for Rc<ByteStr> {
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        (**self).fmt_with_context(f, context)
+    }
+}
+
+impl<C> DebugWithContext<C> for Arc<ByteStr> {
     fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
         (**self).fmt_with_context(f, context)
     }
