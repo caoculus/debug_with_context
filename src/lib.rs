@@ -84,6 +84,9 @@ debug_with_context_debug!(
     Path,
     PathBuf,
     ByteStr,
+    Box<ByteStr>,
+    Rc<ByteStr>,
+    Arc<ByteStr>,
     ByteString,
 );
 
@@ -136,49 +139,28 @@ where
         .finish()
 }
 
-impl<C, T> DebugWithContext<C> for Vec<T>
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        fmt_with_context_collection(self, f, context)
-    }
+macro_rules! debug_with_context_debug_collection {
+    (<$ty:ident>: $($coll:ty),* $(,)?) => {
+        $(
+            impl<C, $ty> DebugWithContext<C> for $coll
+            where
+                $ty: DebugWithContext<C>,
+            {
+                fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+                    fmt_with_context_collection(self, f, context)
+                }
+            }
+        )*
+    };
 }
 
-impl<C, T> DebugWithContext<C> for &[T]
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        fmt_with_context_collection(self, f, context)
-    }
-}
-
-impl<C, T> DebugWithContext<C> for Box<[T]>
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        fmt_with_context_collection(self, f, context)
-    }
-}
-
-impl<C, T> DebugWithContext<C> for Rc<[T]>
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        fmt_with_context_collection(self, f, context)
-    }
-}
-
-impl<C, T> DebugWithContext<C> for Arc<[T]>
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        fmt_with_context_collection(self, f, context)
-    }
+debug_with_context_debug_collection! {
+    <T>:
+    Vec<T>,
+    &[T],
+    Box<[T]>,
+    Rc<[T]>,
+    Arc<[T]>,
 }
 
 impl<C, T> DebugWithContext<C> for Option<T>
@@ -227,65 +209,26 @@ where
     }
 }
 
-impl<C, T> DebugWithContext<C> for &'_ T
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        (*self).fmt_with_context(f, context)
-    }
+macro_rules! debug_with_context_debug_deref {
+    (<$ty:ident>: $($outer:ty),* $(,)?) => {
+        $(
+            impl<C, $ty> DebugWithContext<C> for $outer
+            where
+                $ty: DebugWithContext<C>,
+            {
+                fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+                    (**self).fmt_with_context(f, context)
+                }
+            }
+        )*
+    };
 }
 
-impl<C, T> DebugWithContext<C> for &'_ mut T
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        (**self).fmt_with_context(f, context)
-    }
-}
-
-impl<C, T> DebugWithContext<C> for Box<T>
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        (**self).fmt_with_context(f, context)
-    }
-}
-
-impl<C, T> DebugWithContext<C> for Rc<T>
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        (**self).fmt_with_context(f, context)
-    }
-}
-
-impl<C, T> DebugWithContext<C> for Arc<T>
-where
-    T: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        (**self).fmt_with_context(f, context)
-    }
-}
-
-impl<C> DebugWithContext<C> for Box<ByteStr> {
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        (**self).fmt_with_context(f, context)
-    }
-}
-
-impl<C> DebugWithContext<C> for Rc<ByteStr> {
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        (**self).fmt_with_context(f, context)
-    }
-}
-
-impl<C> DebugWithContext<C> for Arc<ByteStr> {
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        (**self).fmt_with_context(f, context)
-    }
+debug_with_context_debug_deref! {
+    <T>:
+    &'_ T,
+    &'_ mut T,
+    Box<T>,
+    Rc<T>,
+    Arc<T>,
 }
