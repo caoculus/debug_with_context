@@ -87,19 +87,36 @@ debug_with_context_debug!(
     ByteString,
 );
 
-// TODO : use a macro to create tuples for example to a bigger size
-impl<C, T1, T2> DebugWithContext<C> for (T1, T2)
-where
-    T1: DebugWithContext<C>,
-    T2: DebugWithContext<C>,
-{
-    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
-        f.debug_tuple("")
-            .field_with(|fmt| self.0.fmt_with_context(fmt, context))
-            .field_with(|fmt| self.1.fmt_with_context(fmt, context))
-            .finish()
-    }
+macro_rules! debug_with_context_debug_tuple {
+    ($($param:ident),*) => {
+        impl<C, $($param,)*> DebugWithContext<C> for ($($param,)*)
+        where
+            $($param: DebugWithContext<C>),* {
+            fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+                #[allow(non_snake_case)]
+                let ($($param,)*) = self;
+                f.debug_tuple("")
+                    $(.field_with(|fmt| $param.fmt_with_context(fmt, context)))*
+                    .finish()
+            }
+        }
+    };
 }
+
+macro_rules! debug_with_context_debug_all_tuples {
+    ($first:ident $(, $rest:ident)*) => {
+        debug_with_context_debug_all_tuples!(@accum [$first] $($rest),*);
+    };
+    (@accum [$($prefix:tt),*] $next:ident $(, $rest:ident)*) => {
+        debug_with_context_debug_tuple!($($prefix),*);
+        debug_with_context_debug_all_tuples!(@accum [$($prefix),*, $next] $($rest),*);
+    };
+    (@accum [$($prefix:ident),*]) => {
+        debug_with_context_debug_tuple!($($prefix),*);
+    };
+}
+
+debug_with_context_debug_all_tuples!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
 
 #[inline]
 fn fmt_with_context_collection<C, Col, T>(
