@@ -228,6 +228,33 @@ where
     }
 }
 
+impl<C, T> DebugWithContext<C> for Box<T>
+where
+    T: DebugWithContext<C>,
+{
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        (**self).fmt_with_context(f, context)
+    }
+}
+
+impl<C, T> DebugWithContext<C> for Rc<T>
+where
+    T: DebugWithContext<C>,
+{
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        (**self).fmt_with_context(f, context)
+    }
+}
+
+impl<C, T> DebugWithContext<C> for Arc<T>
+where
+    T: DebugWithContext<C>,
+{
+    fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
+        (**self).fmt_with_context(f, context)
+    }
+}
+
 impl<C> DebugWithContext<C> for Box<ByteStr> {
     fn fmt_with_context(&self, f: &mut fmt::Formatter, context: &C) -> fmt::Result {
         (**self).fmt_with_context(f, context)
